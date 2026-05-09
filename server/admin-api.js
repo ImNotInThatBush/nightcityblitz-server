@@ -34,19 +34,22 @@ const requireAdmin = async (req, res, next) => {
     }
 };
 
-// Endpoint di Login (Passwordless)
+// Endpoint di Login
 app.post('/api/login', async (req, res) => {
-    const { nickname, token } = req.body;
+    const { nickname, password } = req.body;
     if (!nickname || nickname.trim() === '') return res.status(400).json({ error: "Nickname non valido." });
+    if (!password || password.trim() === '') return res.status(400).json({ error: "Password mancante." });
 
     const cleanNick = nickname.trim();
+    const cleanPass = password.trim();
+    
     try {
         const userRes = await pool.query('SELECT * FROM ncb_users WHERE nickname ILIKE $1', [cleanNick]);
         
         if (userRes.rows.length === 0) {
-            // Nuovo utente: genera token e salvalo
+            // Nuovo utente: genera token e salva password
             const newToken = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
-            await pool.query('INSERT INTO ncb_users (nickname, auth_token) VALUES ($1, $2)', [cleanNick, newToken]);
+            await pool.query('INSERT INTO ncb_users (nickname, auth_token, password_hash) VALUES ($1, $2, $3)', [cleanNick, newToken, cleanPass]);
             
             // Crea record statistiche
             const newIdRes = await pool.query('SELECT id FROM ncb_users WHERE nickname ILIKE $1', [cleanNick]);
@@ -54,14 +57,25 @@ app.post('/api/login', async (req, res) => {
             
             return res.json({ success: true, nickname: cleanNick, token: newToken, isNew: true });
         } else {
-            // Utente esistente: verifica token
+            // Utente esistente
             const user = userRes.rows[0];
             if (user.is_banned) return res.status(403).json({ error: "Account bannato dal sistema." });
             
-            if (user.auth_token === token) {
-                return res.json({ success: true, nickname: user.nickname, token: user.auth_token, isNew: false });
+            // Backward compatibility: se password è NULL, impostala ora
+            if (user.password_hash === null || user.password_hash === '') {
+                const newToken = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+                await pool.query('UPDATE ncb_users SET password_hash = $1, auth_token = $2 WHERE id = $3', [cleanPass, newToken, user.id]);
+                return res.json({ success: true, nickname: user.nickname, token: newToken, isNew: false });
+            }
+
+            if (user.password_hash === cleanPass) {
+                // Genera sempre un nuovo token per questa sessione e aggiornalo per disconnettere altre tab se necessario (o mantieni quello vecchio)
+                // Per comodità manteniamo quello vecchio o ne generiamo uno nuovo se preferiamo.
+                const newToken = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+                await pool.query('UPDATE ncb_users SET auth_token = $1 WHERE id = $2', [newToken, user.id]);
+                return res.json({ success: true, nickname: user.nickname, token: newToken, isNew: false });
             } else {
-                return res.status(403).json({ error: "Nickname già in uso. Se sei tu, ti manca il token di accesso." });
+                return res.status(403).json({ error: "Password non valida." });
             }
         }
     } catch (err) {

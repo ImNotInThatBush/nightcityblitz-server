@@ -6,8 +6,9 @@ export class NicknameScreen {
         this.changeState = changeStateCallback;
         this.audioManager = audioManager;
         this.title = "// NETRUNNER IDENTIFICATION PROTOCOL //";
-        this.prompt = "Input your Handle, choomba:";
+        this.prompt = "Input your Handle & Password, choomba:";
         this.nickname = "";
+        this.password = "";
         this.maxLength = 16;
         this.errorMessage = "";
         this.isLoading = false;
@@ -22,10 +23,17 @@ export class NicknameScreen {
         this.inputElement = document.createElement('input');
         this.inputElement.type = 'text';
         this.inputElement.maxLength = this.maxLength;
-        Object.assign(this.inputElement.style, {
+        this.inputElement.placeholder = "HANDLE";
+        
+        this.passwordElement = document.createElement('input');
+        this.passwordElement.type = 'password';
+        this.passwordElement.maxLength = 32;
+        this.passwordElement.placeholder = "PASSWORD";
+
+        const inputStyle = {
             position: 'absolute', opacity: '0', pointerEvents: 'none',
             transition: 'opacity 0.3s ease-in-out, border-color 0.2s ease',
-            width: '20.83vw', height: '4.62vh', left: '39.58vw', top: '46.75vh',
+            width: '20.83vw', height: '4.62vh', left: '39.58vw',
             backgroundColor: 'rgba(5,10,15,0.8)',
             border: `2px solid ${Config.PALETTE.CYAN_UI}`,
             color: Config.PALETTE.TEXT_PRIMARY,
@@ -33,18 +41,35 @@ export class NicknameScreen {
             fontSize: '2.2vh', padding: '1vh',
             boxSizing: 'border-box', textAlign: 'center',
             caretColor: Config.PALETTE.TERMINAL_GREEN, outline: 'none',
-        });
+        };
+
+        Object.assign(this.inputElement.style, inputStyle);
+        this.inputElement.style.top = '44.75vh'; // spostato più in alto
+        
+        Object.assign(this.passwordElement.style, inputStyle);
+        this.passwordElement.style.top = '51.75vh'; // sotto al nickname
 
         this.inputElement.addEventListener('input', e => {
             e.target.value = e.target.value.replace(/[^a-z0-9_]/gi, '');
             this.nickname = e.target.value;
             this.errorMessage = "";
         });
+        this.passwordElement.addEventListener('input', e => {
+            this.password = e.target.value;
+            this.errorMessage = "";
+        });
+
         this.inputElement.addEventListener('keydown', e => {
+            if (e.key === 'Enter') this.passwordElement.focus();
+        });
+        this.passwordElement.addEventListener('keydown', e => {
             if (e.key === 'Enter' && this.animationProgress >= this.animationDuration) this.handleConfirm();
         });
+
         this.inputElement.addEventListener('focus', () => { this.inputElement.style.borderColor = Config.PALETTE.YELLOW_MAIN; });
         this.inputElement.addEventListener('blur',  () => { this.inputElement.style.borderColor = Config.PALETTE.CYAN_UI; });
+        this.passwordElement.addEventListener('focus', () => { this.passwordElement.style.borderColor = Config.PALETTE.YELLOW_MAIN; });
+        this.passwordElement.addEventListener('blur',  () => { this.passwordElement.style.borderColor = Config.PALETTE.CYAN_UI; });
     }
 
     easeOutQuad(t) { return t * (2 - t); }
@@ -80,18 +105,27 @@ export class NicknameScreen {
     enter() {
         this.generateFragments();
         document.body.appendChild(this.inputElement);
+        document.body.appendChild(this.passwordElement);
         this.inputElement.value = "";
+        this.passwordElement.value = "";
         this.inputElement.style.opacity = '0';
+        this.passwordElement.style.opacity = '0';
         this.inputElement.style.pointerEvents = 'none';
-        this.nickname = ""; this.errorMessage = ""; this.isLoading = false;
+        this.passwordElement.style.pointerEvents = 'none';
+        this.nickname = ""; this.password = ""; this.errorMessage = ""; this.isLoading = false;
         this.animationProgress = 0; this.inputFocused = false;
     }
 
     exit() {
         if (this.inputElement.parentNode === document.body) {
             this.inputElement.style.opacity = '0';
+            this.passwordElement.style.opacity = '0';
             this.inputElement.style.pointerEvents = 'none';
-            setTimeout(() => { if (this.inputElement.parentNode === document.body) document.body.removeChild(this.inputElement); }, 300);
+            this.passwordElement.style.pointerEvents = 'none';
+            setTimeout(() => { 
+                if (this.inputElement.parentNode === document.body) document.body.removeChild(this.inputElement); 
+                if (this.passwordElement.parentNode === document.body) document.body.removeChild(this.passwordElement); 
+            }, 300);
         }
     }
 
@@ -116,8 +150,10 @@ export class NicknameScreen {
         if (this.animationProgress > inputStart) {
             const fp = Math.min(1, (this.animationProgress - inputStart) / inputFadeDur);
             this.inputElement.style.opacity = String(fp);
+            this.passwordElement.style.opacity = String(fp);
             if (fp >= 1) {
                 this.inputElement.style.pointerEvents = 'auto';
+                this.passwordElement.style.pointerEvents = 'auto';
                 if (!this.inputFocused) {
                     setTimeout(() => { if (document.body.contains(this.inputElement)) this.inputElement.focus(); }, 100);
                     this.inputFocused = true;
@@ -128,8 +164,9 @@ export class NicknameScreen {
     }
 
     async handleConfirm() {
-        if (this.isLoading || this.nickname.length === 0 || this.animationProgress < this.animationDuration) return;
+        if (this.isLoading || this.nickname.length === 0 || this.password.length === 0 || this.animationProgress < this.animationDuration) return;
         const nick = this.nickname.trim();
+        const pass = this.password.trim();
         if (!nick.match(/^[a-z0-9_]{3,16}$/i)) {
             this.errorMessage = "// Invalid Handle (3-16 Alphanumeric/Underscore) //";
             return;
@@ -138,7 +175,7 @@ export class NicknameScreen {
         this.isLoading = true;
         this.confirmButton.label = "CONNECTING...";
         
-        const loginResult = await Auth.login(nick);
+        const loginResult = await Auth.login(nick, pass);
         
         this.isLoading = false;
         this.confirmButton.label = "REGISTER ID";

@@ -1,4 +1,4 @@
-import { Config } from './config.js?v=7';
+import { Config } from './config.js?v=8';
 
 export const Auth = {
     nickname: null,
@@ -13,12 +13,12 @@ export const Auth = {
         }
     },
 
-    async login(nicknameStr) {
+    async login(nicknameStr, passwordStr) {
         try {
             const res = await fetch(`${Config.API_URL}/api/login`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ nickname: nicknameStr, token: this.token })
+                body: JSON.stringify({ nickname: nicknameStr, password: passwordStr, token: this.token })
             });
             const data = await res.json();
             
