@@ -198,9 +198,11 @@ export class GameScreen {
                 const targetDirection = (this.player.y < this.ai.y) ? 'up' : 'down';
                 this.ball.activateDaemonTrace(this.ball.x, this.ball.y, targetDirection, -1);
                 this.audioManager.playSfx('overdriveFire');
-            } else if (aiAction === true) {
-                this.ball.dy += (GamePRNG.nextFloat() > 0.5 ? 1 : -1) * Config.GAMEPLAY.PADDLE_CORNER_BOOST;
-                const ramGained = Config.GAMEPLAY.QUICKHACKS.RAM_SKILL_BONUS;
+            } else {
+                if (aiAction === true) {
+                    this.ball.dy += (GamePRNG.nextFloat() > 0.5 ? 1 : -1) * Config.GAMEPLAY.PADDLE_CORNER_BOOST;
+                }
+                const ramGained = Config.GAMEPLAY.QUICKHACKS.RAM_SKILL_BONUS * (aiAction === true ? 1 : 0.5);
                 const oldRam = this.aiRAM;
                 this.aiRAM = Math.min(Config.GAMEPLAY.QUICKHACKS.RAM_MAX, oldRam + ramGained);
             }
