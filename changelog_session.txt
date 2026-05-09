@@ -1,0 +1,27 @@
+=== NIGHT CITY BLITZ - SESSIONE DI DEBUG E FIX ===
+Data: 8 Maggio 2026
+
+MODIFICHE E AGGIUNTE PRINCIPALI:
+1. Sistema a Round "Stile Tekken":
+   - Implementato il formato "Best of 5" (Chi arriva primo a 3 round vince il match).
+   - Impostato il limite di goal per round a 3 (una sorta di "3 HP" per giocatore).
+   - L'HUD nativo (quadratini in alto) scala perfettamente e mostra il punteggio.
+
+2. Aggiunta System Settings nel menu di Pausa:
+   - Inserito il pulsante "SYSTEM SETTINGS" al centro del menu di pausa.
+   - Modificato il motore di gestione degli stati (Game.changeState) per passare lo stato di provenienza (`previousState: 'PAUSED'`).
+   - Risolto un potenziale glitch visivo in cui entrare nelle impostazioni dalla pausa avrebbe sovrascritto l'immagine di background (savedGameFrame) rovinando l'effetto "blur" sul gioco.
+
+ERRORI INCONTRATI E RISOLTI:
+1. Freeze/Blocco al primo dialogo (CampaignTerminalScreen):
+   - Causa 1 (Browser Cache): Il browser manteneva in memoria una versione vecchia di `ai.js` che non conteneva la classe `DynamicCampaignAI`, generando un'eccezione invisibile. Risolto implementando un *cache buster* aggressivo (`?v=5`) su tutti i file e nell'index.html.
+   - Causa 2 (TypeError Audio): Nel codice del terminale veniva chiamata la funzione `this.audioManager.playUiClick()`, la quale però non esisteva in `audio.js` (esisteva solo `playUiHover()`). Questo faceva crashare istantaneamente il loop di rendering appena si cliccava per saltare o avviare la partita. Sostituita la chiamata con quella corretta.
+
+2. Prevenzione Bug in GameScreen:
+   - Aggiunta l'assegnazione mancante `this.data = gameData;` nel costruttore di `GameScreen` per evitare futuri errori di `undefined` nella lettura dei dati (es. in fase di Game Over).
+
+STATO ATTUALE:
+- Deploy su Netlify: AGGIORNATO E FUNZIONANTE.
+- Repository locale: SALVATO E SINCRONIZZATO.
+
+Il codice è attualmente pulito, stabile e pronto per eventuali nuovi sviluppi (es. nuove classi AI o tuning). Puoi chiudere l'editor in totale sicurezza!

@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(Get-ChildItem -Path \"D:\\\\Progetti\\\\claude\\\\nightcityblitz\" -Recurse -File)",
+      "Bash(Select-Object FullName)",
+      "Bash(Sort-Object FullName)",
+      "Bash(npx --version)",
+      "Bash(not exist *)",
+      "Bash(mkdir -p \"D:/Progetti/claude/nightcityblitz/.claude\")",
+      "mcp__Claude_Preview__preview_start"
+    ]
+  }
+}
