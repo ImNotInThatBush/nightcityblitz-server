@@ -34,6 +34,24 @@ export class GameScreen {
         this.glitchEffect = { intensity: 0 };
         this.screenShake = { intensity: 0, duration: 0, timer: 0 };
         this.cyberpsychosisIntensity = 0;
+
+        this.isMultiplayer = gameData.mode === 'MULTIPLAYER';
+        this.role = gameData.role || 'host';
+        this.socket = gameData.socket || null;
+        this.serverState = null;
+        this.lastDx = null;
+
+        if (this.isMultiplayer && this.socket) {
+            this.socket.on('game_state_update', (state) => {
+                this.serverState = state;
+            });
+            this.socket.on('opponent_left', () => {
+                this.changeState('LOBBY');
+            });
+            this.socket.on('match_cancelled', () => {
+                this.changeState('LOBBY');
+            });
+        }
     }
 
     triggerScreenShake(intensity, duration) {
@@ -196,17 +214,17 @@ export class GameScreen {
         if (speedRatio > 0.6) this.shockwaves.push({ x: this.ball.x, y: this.ball.y, radius: Config.GAMEPLAY.BALL_RADIUS * 2, alpha: 0.7 });
     }
 
-    scorePoint(winner) {
+    scorePoint(winner, isSync = false) {
         const breachSide = winner === 'player' ? 'right' : 'left';
         this.breachEffects.push({ side: breachSide, alpha: 1.0 });
         this.breachMessageTimer = 0.25;
 
         if (winner === 'player') {
-            this.playerScore++;
+            if (!isSync) this.playerScore++;
             this.goalFlash = { alpha: 1.0, color: Config.PALETTE.RED_ALERT };
             this.scoreAnimation.player = 1.0;
         } else {
-            this.aiScore++;
+            if (!isSync) this.aiScore++;
             this.goalFlash = { alpha: 1.0, color: Config.PALETTE.YELLOW_MAIN };
             this.scoreAnimation.ai = 1.0;
         }
@@ -214,7 +232,7 @@ export class GameScreen {
         this.rallyHits = 0;
         this.cyberpsychosisIntensity = 0;
         this.audioManager.stopCyberpsychosisSfx();
-        this.ball.reset(winner === 'player' ? 'ai' : 'player');
+        if (!isSync) this.ball.reset(winner === 'player' ? 'ai' : 'player');
         this.audioManager.playSfx('score');
         this.glitchEffect.intensity = 5.0;
         this.triggerScreenShake(35, 0.8);
@@ -222,59 +240,92 @@ export class GameScreen {
     }
 
     update(input, dtSeconds) {
-        this.player.update(input, this.ball, dtSeconds, this.ai);
-        this.ai.update(input, this.ball, dtSeconds, this.player);
+        if (this.isMultiplayer) {
+            if (this.socket) {
+                this.socket.emit('player_move', { y: input.mouse.y - this.player.height / 2 });
+            }
 
-        // CCD: sub-step ball so displacement per step ≤ 80% of ball radius (optimized for Circle-vs-AABB)
-        this.ball.prevX = this.ball.x;
-        this.ball.prevY = this.ball.y;
-        const subSteps = Math.max(1, Math.ceil(this.ball.currentSpeed * dtSeconds / (this.ball.radius * 0.8)));
-        const subDt = dtSeconds / subSteps;
-        
-        const playerFinalY = this.player.y;
-        const aiFinalY = this.ai.y;
+            if (this.serverState) {
+                const s = this.serverState;
+                this.ball.prevX = this.ball.x;
+                this.ball.prevY = this.ball.y;
+                this.ball.x = s.ball.x;
+                this.ball.y = s.ball.y;
+                
+                this.player.prevY = this.player.y;
+                this.ai.prevY = this.ai.y;
+                this.player.y = s.p1y;
+                this.ai.y = s.p2y;
+                
+                if (this.lastDx !== null && s.ball.dx !== 0 && Math.sign(s.ball.dx) !== Math.sign(this.lastDx)) {
+                    this.audioManager.playSfx('hit');
+                    this.shockwaves.push({ x: this.ball.x, y: this.ball.y, radius: Config.GAMEPLAY.BALL_RADIUS, alpha: 1.0 });
+                }
+                this.lastDx = s.ball.dx;
 
-        for (let s = 0; s < subSteps; s++) {
-            const t = subSteps > 1 ? (s + 1) / subSteps : 1;
-            this.player.y = this.player.prevY + (playerFinalY - this.player.prevY) * t;
-            this.ai.y = this.ai.prevY + (aiFinalY - this.ai.prevY) * t;
+                if (this.playerScore !== s.score[0] || this.aiScore !== s.score[1]) {
+                    if (s.score[0] > this.playerScore) this.scorePoint('player', true);
+                    else if (s.score[1] > this.aiScore) this.scorePoint('ai', true);
+                    this.playerScore = s.score[0];
+                    this.aiScore = s.score[1];
+                }
+            }
+            this.ball.updateTrail(dtSeconds);
+        } else {
+            this.player.update(input, this.ball, dtSeconds, this.ai);
+            this.ai.update(input, this.ball, dtSeconds, this.player);
 
-            this.ball.updatePhysics(this, subDt);
-            this.checkCollision(input);
-        }
-        
-        this.player.y = playerFinalY;
-        this.ai.y = aiFinalY;
-        this.ball.updateTrail(dtSeconds);
+            // CCD: sub-step ball so displacement per step ≤ 80% of ball radius (optimized for Circle-vs-AABB)
+            this.ball.prevX = this.ball.x;
+            this.ball.prevY = this.ball.y;
+            const subSteps = Math.max(1, Math.ceil(this.ball.currentSpeed * dtSeconds / (this.ball.radius * 0.8)));
+            const subDt = dtSeconds / subSteps;
+            
+            const playerFinalY = this.player.y;
+            const aiFinalY = this.ai.y;
 
-        const tolerance = 0.001;
+            for (let s = 0; s < subSteps; s++) {
+                const t = subSteps > 1 ? (s + 1) / subSteps : 1;
+                this.player.y = this.player.prevY + (playerFinalY - this.player.prevY) * t;
+                this.ai.y = this.ai.prevY + (aiFinalY - this.ai.prevY) * t;
 
-        if (input.mouse.isHolding && !this.isChargingOverdrive && this.playerRAM >= Config.GAMEPLAY.QUICKHACKS.OVERDRIVE_COST - tolerance) {
-            this.isChargingOverdrive = true;
-            this.player.isCharging = true;
-            this.playerRAM -= Config.GAMEPLAY.QUICKHACKS.OVERDRIVE_COST;
-            this.audioManager.startChargeSound();
-        } else if (!input.mouse.isHolding && this.isChargingOverdrive) {
-            this.isChargingOverdrive = false;
-            this.player.isCharging = false;
-            this.playerRAM += Config.GAMEPLAY.QUICKHACKS.OVERDRIVE_COST;
-            this.audioManager.stopChargeSound();
-        }
+                this.ball.updatePhysics(this, subDt);
+                this.checkCollision(input);
+            }
+            
+            this.player.y = playerFinalY;
+            this.ai.y = aiFinalY;
+            this.ball.updateTrail(dtSeconds);
 
-        if (input.mouse.doubleClicked && !this.activeIceWall && this.playerRAM >= Config.GAMEPLAY.QUICKHACKS.ICE_WALL_COST - tolerance) {
-            this.playerRAM -= Config.GAMEPLAY.QUICKHACKS.ICE_WALL_COST;
-            this.activeIceWall = { x: this.player.x + this.player.width + 15, y: Config.GAMEPLAY.ARENA_MARGIN, width: 10, height: Config.BASE_HEIGHT - Config.GAMEPLAY.ARENA_MARGIN * 2, alpha: 1.0, isHit: false };
-            this.audioManager.playSfx('iceWallSpawn');
-        }
+            const tolerance = 0.001;
 
-        if (this.ai.aiController && this.ai.aiController.decideQuickhack) {
-            const decision = this.ai.aiController.decideQuickhack(this.ball, this.aiRAM, this.player);
-            if (decision === 'ICE_WALL' && !this.aiActiveIceWall) {
-                this.aiRAM -= Config.GAMEPLAY.QUICKHACKS.ICE_WALL_COST;
-                this.aiActiveIceWall = { x: this.ai.x - 15 - 10, y: Config.GAMEPLAY.ARENA_MARGIN, width: 10, height: Config.BASE_HEIGHT - Config.GAMEPLAY.ARENA_MARGIN * 2, alpha: 1.0, isHit: false };
+            if (input.mouse.isHolding && !this.isChargingOverdrive && this.playerRAM >= Config.GAMEPLAY.QUICKHACKS.OVERDRIVE_COST - tolerance) {
+                this.isChargingOverdrive = true;
+                this.player.isCharging = true;
+                this.playerRAM -= Config.GAMEPLAY.QUICKHACKS.OVERDRIVE_COST;
+                this.audioManager.startChargeSound();
+            } else if (!input.mouse.isHolding && this.isChargingOverdrive) {
+                this.isChargingOverdrive = false;
+                this.player.isCharging = false;
+                this.playerRAM += Config.GAMEPLAY.QUICKHACKS.OVERDRIVE_COST;
+                this.audioManager.stopChargeSound();
+            }
+
+            if (input.mouse.doubleClicked && !this.activeIceWall && this.playerRAM >= Config.GAMEPLAY.QUICKHACKS.ICE_WALL_COST - tolerance) {
+                this.playerRAM -= Config.GAMEPLAY.QUICKHACKS.ICE_WALL_COST;
+                this.activeIceWall = { x: this.player.x + this.player.width + 15, y: Config.GAMEPLAY.ARENA_MARGIN, width: 10, height: Config.BASE_HEIGHT - Config.GAMEPLAY.ARENA_MARGIN * 2, alpha: 1.0, isHit: false };
                 this.audioManager.playSfx('iceWallSpawn');
             }
-        }
+
+            if (this.ai.aiController && this.ai.aiController.decideQuickhack) {
+                const decision = this.ai.aiController.decideQuickhack(this.ball, this.aiRAM, this.player);
+                if (decision === 'ICE_WALL' && !this.aiActiveIceWall) {
+                    this.aiRAM -= Config.GAMEPLAY.QUICKHACKS.ICE_WALL_COST;
+                    this.aiActiveIceWall = { x: this.ai.x - 15 - 10, y: Config.GAMEPLAY.ARENA_MARGIN, width: 10, height: Config.BASE_HEIGHT - Config.GAMEPLAY.ARENA_MARGIN * 2, alpha: 1.0, isHit: false };
+                    this.audioManager.playSfx('iceWallSpawn');
+                }
+            }
+        } // End of local specific logic
 
         if (this.activeIceWall) {
             if (this.activeIceWall.isHit) this.activeIceWall.alpha -= dtSeconds * 3;

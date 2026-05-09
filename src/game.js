@@ -31,7 +31,7 @@ class Game {
         AdminPanel.initAdminUI();
         this.userNickname = Auth.nickname;
 
-        this.socketManager = { socket: window.io ? window.io('http://localhost:3001') : null };
+        this.socketManager = { socket: window.io ? window.io(Config.API_URL) : null };
 
         this.audioManager = new AudioManager();
         this.renderer = new Renderer(this.canvas, this.context, this.offscreenCanvas, this.offscreenCanvas.getContext('2d'));
@@ -165,7 +165,11 @@ class Game {
                 this.audioManager.stopMenuMusic();
                 this.wallpaperBg.style.opacity = '1';
                 this.videoBg.style.opacity = '0';
-                this.gameScreen = new GameScreen(this.changeState.bind(this), this.audioManager, { ...data, nickname: this.userNickname });
+                this.gameScreen = new GameScreen(this.changeState.bind(this), this.audioManager, { 
+                    ...data, 
+                    nickname: this.userNickname,
+                    socket: data.mode === 'MULTIPLAYER' ? this.socketManager.socket : null
+                });
 
                 let aiController;
                 let forcedMusicIndex = null;

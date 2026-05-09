@@ -1,3 +1,5 @@
+import { Config } from './config.js?v=6';
+
 export const Auth = {
     nickname: null,
     token: null,
@@ -13,7 +15,7 @@ export const Auth = {
 
     async login(nicknameStr) {
         try {
-            const res = await fetch('http://localhost:3001/api/login', {
+            const res = await fetch(`${Config.API_URL}/api/login`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ nickname: nicknameStr, token: this.token })
@@ -39,7 +41,7 @@ export const Auth = {
     async validateSession() {
         if (!this.nickname || !this.token) return false;
         try {
-            const res = await fetch('http://localhost:3001/api/validate', {
+            const res = await fetch(`${Config.API_URL}/api/validate`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ nickname: this.nickname, token: this.token })
@@ -57,7 +59,7 @@ export const Auth = {
             return;
         }
         try {
-            const res = await fetch('http://localhost:3001/api/validate', {
+            const res = await fetch(`${Config.API_URL}/api/validate`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ nickname: this.nickname, token: this.token })
@@ -81,7 +83,7 @@ export const Auth = {
 export const AdminPanel = {
     async fetchPlayers() {
         try {
-            const res = await fetch('http://localhost:3001/api/admin/players', {
+            const res = await fetch(`${Config.API_URL}/api/admin/players`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ nickname: Auth.nickname })
@@ -97,7 +99,7 @@ export const AdminPanel = {
     },
 
     async toggleBan(targetId, isBanned) {
-        await fetch('http://localhost:3001/api/admin/ban', {
+        await fetch(`${Config.API_URL}/api/admin/ban`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ nickname: Auth.nickname, targetId, isBanned })
@@ -105,7 +107,7 @@ export const AdminPanel = {
     },
 
     async resetStats(targetId) {
-        await fetch('http://localhost:3001/api/admin/reset-stats', {
+        await fetch(`${Config.API_URL}/api/admin/reset-stats`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ nickname: Auth.nickname, targetId })
@@ -114,7 +116,7 @@ export const AdminPanel = {
 
     async deletePlayer(targetId) {
         if (confirm("Sei sicuro di voler ELIMINARE DEFINITIVAMENTE questo utente?")) {
-            await fetch('http://localhost:3001/api/admin/delete', {
+            await fetch(`${Config.API_URL}/api/admin/delete`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ nickname: Auth.nickname, targetId })

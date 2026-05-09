@@ -1,6 +1,9 @@
 export const Config = {
     BASE_WIDTH: 1920,
     BASE_HEIGHT: 1080,
+    API_URL: window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' 
+        ? 'http://localhost:3001' 
+        : 'https://nightcityblitz-server.onrender.com',
     PALETTE: {
         RED_ALERT: '#ff003c',
         YELLOW_MAIN: '#fcee0a',

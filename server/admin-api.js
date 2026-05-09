@@ -140,6 +140,102 @@ const io = new Server(server, {
 // Multiplayer Lobby Logic
 const publicRooms = {}; // { roomId: { id, name, host, hostSocketId, players: 1, maxPlayers: 2, isStarted: false } }
 
+const PHYSICS = {
+    FPS: 60,
+    STEP: 1 / 60,
+    BASE_WIDTH: 1920,
+    BASE_HEIGHT: 1080,
+    PADDLE_WIDTH: 20,
+    PADDLE_HEIGHT: 120,
+    BALL_RADIUS: 12,
+    BALL_BASE_SPEED: 800,
+    BALL_MAX_SPEED: 4000,
+    ARENA_MARGIN: 50
+};
+
+function resetBall(room) {
+    const s = room.gameState;
+    s.ball.x = PHYSICS.BASE_WIDTH / 2;
+    s.ball.y = PHYSICS.BASE_HEIGHT / 2;
+    s.ball.dx = (Math.random() > 0.5 ? 1 : -1) * PHYSICS.BALL_BASE_SPEED;
+    s.ball.dy = (Math.random() > 0.5 ? 1 : -1) * (PHYSICS.BALL_BASE_SPEED / 2);
+}
+
+function startGameLoop(roomId) {
+    const room = publicRooms[roomId];
+    if (!room) return;
+    
+    room.gameState = {
+        ball: { x: PHYSICS.BASE_WIDTH/2, y: PHYSICS.BASE_HEIGHT/2, dx: 0, dy: 0 },
+        p1y: (PHYSICS.BASE_HEIGHT - PHYSICS.PADDLE_HEIGHT)/2,
+        p2y: (PHYSICS.BASE_HEIGHT - PHYSICS.PADDLE_HEIGHT)/2,
+        score: [0, 0]
+    };
+    resetBall(room);
+    
+    const margin = PHYSICS.ARENA_MARGIN;
+    const ph = PHYSICS.PADDLE_HEIGHT;
+    const pw = PHYSICS.PADDLE_WIDTH;
+    const p1x = margin + 10;
+    const p2x = PHYSICS.BASE_WIDTH - margin - pw - 10;
+    const br = PHYSICS.BALL_RADIUS;
+    
+    room.gameInterval = setInterval(() => {
+        const s = room.gameState;
+        const dt = PHYSICS.STEP;
+        
+        s.ball.x += s.ball.dx * dt;
+        s.ball.y += s.ball.dy * dt;
+        
+        if (s.ball.y - br < margin) {
+            s.ball.y = margin + br;
+            s.ball.dy *= -1;
+        } else if (s.ball.y + br > PHYSICS.BASE_HEIGHT - margin) {
+            s.ball.y = PHYSICS.BASE_HEIGHT - margin - br;
+            s.ball.dy *= -1;
+        }
+        
+        if (s.ball.dx < 0 && s.ball.x - br < p1x + pw && s.ball.x + br > p1x) {
+            if (s.ball.y + br > s.p1y && s.ball.y - br < s.p1y + ph) {
+                s.ball.x = p1x + pw + br;
+                s.ball.dx *= -1;
+                s.ball.dx += 100;
+                let hitPoint = (s.ball.y - (s.p1y + ph / 2)) / (ph / 2);
+                s.ball.dy += hitPoint * 400;
+            }
+        }
+        
+        if (s.ball.dx > 0 && s.ball.x + br > p2x && s.ball.x - br < p2x + pw) {
+            if (s.ball.y + br > s.p2y && s.ball.y - br < s.p2y + ph) {
+                s.ball.x = p2x - br;
+                s.ball.dx *= -1;
+                s.ball.dx -= 100;
+                let hitPoint = (s.ball.y - (s.p2y + ph / 2)) / (ph / 2);
+                s.ball.dy += hitPoint * 400;
+            }
+        }
+        
+        if (s.ball.dx > PHYSICS.BALL_MAX_SPEED) s.ball.dx = PHYSICS.BALL_MAX_SPEED;
+        if (s.ball.dx < -PHYSICS.BALL_MAX_SPEED) s.ball.dx = -PHYSICS.BALL_MAX_SPEED;
+        
+        if (s.ball.x < 0) {
+            s.score[1]++;
+            resetBall(room);
+        } else if (s.ball.x > PHYSICS.BASE_WIDTH) {
+            s.score[0]++;
+            resetBall(room);
+        }
+        
+        io.to(roomId).emit('game_state_update', {
+            ball: {x: s.ball.x, y: s.ball.y, dx: s.ball.dx},
+            p1y: s.p1y,
+            p2y: s.p2y,
+            score: s.score
+        });
+        
+    }, 1000 * PHYSICS.STEP);
+}
+
 function getPublicRoomsList() {
     return Object.values(publicRooms)
         .filter(r => !r.isStarted && r.players < r.maxPlayers)
@@ -229,6 +325,7 @@ io.on('connection', (socket) => {
                                 const guestSocket = socketsInRoom.find(s => !s.isHost) || socketsInRoom[1];
                                 hostSocket.emit('match_starting', { countdown: 0, room: socket.room, role: 'host' });
                                 guestSocket.emit('match_starting', { countdown: 0, room: socket.room, role: 'guest' });
+                                startGameLoop(socket.room);
                             }
                             countdown--;
                         }, 1000);
@@ -253,6 +350,18 @@ io.on('connection', (socket) => {
         }
     });
 
+    socket.on('player_move', (data) => {
+        if (!socket.room) return;
+        const room = publicRooms[socket.room];
+        if (room && room.isStarted && room.gameState) {
+            if (socket.isHost) {
+                room.gameState.p1y = data.y;
+            } else {
+                room.gameState.p2y = data.y;
+            }
+        }
+    });
+
     const leaveRoom = () => {
         if (!socket.room) return;
         const roomId = socket.room;
@@ -262,6 +371,7 @@ io.on('connection', (socket) => {
         
         const room = publicRooms[roomId];
         if (room) {
+            if (room.gameInterval) clearInterval(room.gameInterval);
             if (socket.isHost) {
                 // Se l'host esce, la stanza muore
                 delete publicRooms[roomId];
