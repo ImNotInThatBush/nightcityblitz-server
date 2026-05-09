@@ -103,8 +103,6 @@ export class GameScreen {
     }
 
     checkCollision(input) {
-        if (this.ball.isDaemonTrace) return;
-
         const circle = { x: this.ball.x, y: this.ball.y, radius: this.ball.radius };
 
         if (this.ball.dx < 0) {
@@ -148,6 +146,9 @@ export class GameScreen {
 
         const impactPoint = (this.ball.y - paddle.y) / paddle.height;
         const cornerSize = Config.GAMEPLAY.PADDLE_CORNER_RATIO;
+
+        let wasDaemonTrace = this.ball.isDaemonTrace;
+        this.ball.isDaemonTrace = false;
 
         if (isPlayer && this.isChargingOverdrive) {
             this.ball.isDaemonTrace = true;
