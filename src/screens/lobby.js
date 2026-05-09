@@ -45,12 +45,15 @@ export class LobbyScreen {
             this.opponentName = data.opponent || null;
             this.isReady = false;
             this.opponentReady = data.opponentReady || false;
+            this.isHost = data.isHost;
+            this.awaitingServer = false;
             this.countdown = null;
         });
 
         this.socket.on('room_error', (msg) => {
             console.error(msg);
             this.state = 'DIRECTORY';
+            this.awaitingServer = false;
         });
 
         this.socket.on('opponent_joined', (data) => {
@@ -74,6 +77,21 @@ export class LobbyScreen {
             if (this.state === 'MATCH_ROOM' && data.nickname === this.opponentName) {
                 this.opponentReady = true;
                 this.audioManager.playSfx('ramCellRecharged');
+            }
+        });
+
+        this.socket.on('player_unready', (data) => {
+            if (this.state === 'MATCH_ROOM' && data.nickname === this.opponentName) {
+                this.opponentReady = false;
+                this.countdown = null;
+            }
+        });
+
+        this.socket.on('match_cancelled', () => {
+            if (this.state === 'MATCH_ROOM') {
+                this.countdown = null;
+                this.isReady = false;
+                this.opponentReady = false;
             }
         });
 
@@ -152,8 +170,9 @@ export class LobbyScreen {
             this.cancelCreateBtn.isHovered = (mx > cx - 350 && mx < cx - 50 && my > cy + 200 && my < cy + 250);
 
             if (input.mouse.clicked) {
-                if (this.confirmCreateBtn.isHovered && this.roomInput.length > 0 && this.socket) {
+                if (this.confirmCreateBtn.isHovered && this.roomInput.length > 0 && this.socket && !this.awaitingServer) {
                     this.audioManager.playUiHover();
+                    this.awaitingServer = true;
                     this.socket.emit('create_room', { roomName: this.roomInput, hostNickname: this.userNickname });
                 }
                 if (this.cancelCreateBtn.isHovered) {
@@ -164,7 +183,7 @@ export class LobbyScreen {
         } else if (this.state === 'MATCH_ROOM') {
             const readyBtnX = this.isHost ? (cx - 350) : (cx + 50);
             
-            this.readyBtn.isHovered = (this.opponentName && !this.isReady && mx > readyBtnX && mx < readyBtnX + 300 && my > cy + 220 && my < cy + 270);
+            this.readyBtn.isHovered = (this.opponentName && mx > readyBtnX && mx < readyBtnX + 300 && my > cy + 220 && my < cy + 270);
             
             // leaveBtn is always at cx - 350 if not host, or we can put it elsewhere. Let's put leave btn opposite to ready btn
             const leaveBtnX = this.isHost ? (cx + 50) : (cx - 350);
@@ -172,9 +191,15 @@ export class LobbyScreen {
 
             if (input.mouse.clicked) {
                 if (this.readyBtn.isHovered) {
-                    this.isReady = true;
+                    this.isReady = !this.isReady;
                     this.audioManager.playUiHover();
-                    if (this.socket) this.socket.emit('set_ready');
+                    if (this.socket) {
+                        if (this.isReady) {
+                            this.socket.emit('set_ready');
+                        } else {
+                            this.socket.emit('cancel_ready');
+                        }
+                    }
                 }
                 if (this.leaveBtn.isHovered) {
                     this.audioManager.playUiHover();
@@ -301,9 +326,11 @@ export class LobbyScreen {
                 renderer.drawHudButton(this.isHost ? '>>' : '<<', this.leaveBtn.label, leaveBtnX, cy + 220, 300, 50, this.leaveBtn.isHovered);
                 
                 const readyBtnX = this.isHost ? (cx - 350) : (cx + 50);
-                if (this.opponentName && !this.isReady) {
+                if (this.opponentName) {
+                    this.readyBtn.label = this.isReady ? "CANCEL" : "READY";
                     renderer.drawHudButton(this.isHost ? '<<' : '>>', this.readyBtn.label, readyBtnX, cy + 220, 300, 50, this.readyBtn.isHovered);
-                } else if (this.isReady && !this.opponentReady) {
+                } 
+                if (this.isReady && !this.opponentReady) {
                     const textX = this.isHost ? (cx - 200) : (cx + 200);
                     renderer.drawText("WAITING FOR OPPONENT...", textX, cy + 245, { size: 24, color: Config.PALETTE.YELLOW_MAIN, align: 'center' });
                 }

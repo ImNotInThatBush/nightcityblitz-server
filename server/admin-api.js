@@ -215,22 +215,40 @@ io.on('connection', (socket) => {
                 }
                 
                 if (allReady && socketsInRoom.length >= 2) {
-                    if (publicRooms[socket.room]) publicRooms[socket.room].isStarted = true;
-                    broadcastRooms();
+                    const room = publicRooms[socket.room];
+                    if (room) {
+                        room.isStarted = true;
+                        broadcastRooms();
 
-                    let countdown = 3;
-                    const interval = setInterval(() => {
-                        io.to(socket.room).emit('match_starting', { countdown, room: socket.room, role: 'TBD' });
-                        if (countdown <= 0) {
-                            clearInterval(interval);
-                            const hostSocket = socketsInRoom.find(s => s.isHost) || socketsInRoom[0];
-                            const guestSocket = socketsInRoom.find(s => !s.isHost) || socketsInRoom[1];
-                            hostSocket.emit('match_starting', { countdown: 0, room: socket.room, role: 'host' });
-                            guestSocket.emit('match_starting', { countdown: 0, room: socket.room, role: 'guest' });
-                        }
-                        countdown--;
-                    }, 1000);
+                        let countdown = 3;
+                        room.interval = setInterval(() => {
+                            io.to(socket.room).emit('match_starting', { countdown, room: socket.room, role: 'TBD' });
+                            if (countdown <= 0) {
+                                clearInterval(room.interval);
+                                const hostSocket = socketsInRoom.find(s => s.isHost) || socketsInRoom[0];
+                                const guestSocket = socketsInRoom.find(s => !s.isHost) || socketsInRoom[1];
+                                hostSocket.emit('match_starting', { countdown: 0, room: socket.room, role: 'host' });
+                                guestSocket.emit('match_starting', { countdown: 0, room: socket.room, role: 'guest' });
+                            }
+                            countdown--;
+                        }, 1000);
+                    }
                 }
+            }
+        }
+    });
+
+    socket.on('cancel_ready', () => {
+        socket.isReady = false;
+        if (socket.room) {
+            io.to(socket.room).emit('player_unready', { nickname: socket.nickname });
+            const room = publicRooms[socket.room];
+            if (room && room.interval) {
+                clearInterval(room.interval);
+                room.interval = null;
+                room.isStarted = false;
+                io.to(socket.room).emit('match_cancelled');
+                broadcastRooms();
             }
         }
     });

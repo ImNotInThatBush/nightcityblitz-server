@@ -57,6 +57,15 @@ class Game {
             this.gameState = 'AWAITING_INTERACTION';
         }
 
+        if (this.socketManager.socket) {
+            this.socketManager.socket.on('opponent_left', () => {
+                if (this.gameState === 'PLAYING' && this.gameScreen && this.gameScreen.data && this.gameScreen.data.mode === 'MULTIPLAYER') {
+                    alert('L\'avversario si è disconnesso dalla partita.');
+                    this.changeState('LOBBY');
+                }
+            });
+        }
+
         this.fadeAlpha = 0;
         this.fadeTimer = 0;
         this.fadeDuration = Config.TRANSITION.FADE_DURATION;
