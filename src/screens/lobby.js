@@ -140,6 +140,8 @@ export class LobbyScreen {
             this.state = 'DIRECTORY';
             this.roomInput = "";
             this.currentRoom = null;
+            this.countdown = null;
+            this.awaitingServer = false;
             if (this.socket) {
                 this.socket.emit('get_rooms');
             }
