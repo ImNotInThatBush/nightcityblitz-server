@@ -1,4 +1,4 @@
-import { Config } from './config.js?v=6';
+import { Config } from './config.js?v=7';
 
 export const Auth = {
     nickname: null,
@@ -86,7 +86,7 @@ export const AdminPanel = {
             const res = await fetch(`${Config.API_URL}/api/admin/players`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ nickname: Auth.nickname })
+                body: JSON.stringify({ nickname: Auth.nickname, token: Auth.token })
             });
             if (res.ok) {
                 return await res.json();
@@ -102,7 +102,7 @@ export const AdminPanel = {
         await fetch(`${Config.API_URL}/api/admin/ban`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ nickname: Auth.nickname, targetId, isBanned })
+            body: JSON.stringify({ nickname: Auth.nickname, token: Auth.token, targetId, isBanned })
         });
     },
 
@@ -110,7 +110,7 @@ export const AdminPanel = {
         await fetch(`${Config.API_URL}/api/admin/reset-stats`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ nickname: Auth.nickname, targetId })
+            body: JSON.stringify({ nickname: Auth.nickname, token: Auth.token, targetId })
         });
     },
 
@@ -119,7 +119,7 @@ export const AdminPanel = {
             await fetch(`${Config.API_URL}/api/admin/delete`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ nickname: Auth.nickname, targetId })
+                body: JSON.stringify({ nickname: Auth.nickname, token: Auth.token, targetId })
             });
         }
     },
