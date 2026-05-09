@@ -83,7 +83,10 @@ export class DynamicCampaignAI {
         // Ice Wall logic: defend if ball is fast and approaching
         if (currentRam >= Config.GAMEPLAY.QUICKHACKS.ICE_WALL_COST - 0.001) {
             if (ball.dx > 0 && ball.currentSpeed / Config.GAMEPLAY.BALL_MAX_SPEED > 0.65) {
-                if (GamePRNG.nextFloat() < this.params.hackFreq * 0.4) {
+                let iceChance = this.params.hackFreq * 0.4;
+                if (this.params.tactic === 'defensive') iceChance *= 2.0;
+                
+                if (GamePRNG.nextFloat() < iceChance) {
                     this.decisionCooldown = 2.0;
                     return 'ICE_WALL';
                 }

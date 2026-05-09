@@ -15,7 +15,7 @@ export const CAMPAIGN_LEVELS = [
         wallpaperIndex: 18, // Kabuki
         musicIndex: 1, // Problem Kids
         paddleColors: { glow: '#ff9900', chassis: 'rgba(30,10,10,0.9)' },
-        aiParams: { speed: 4.5, reactionDelay: 0.5, errorMargin: 0.15, hackFreq: 0.0, tactic: 'defensive' }
+        aiParams: { speed: 5.2, reactionDelay: 0.38, errorMargin: 0.15, hackFreq: 0.0, tactic: 'defensive' }
     },
     {
         id: 2,
@@ -60,7 +60,7 @@ export const CAMPAIGN_LEVELS = [
         wallpaperIndex: 16, // v3 street
         musicIndex: 10, // Hole in the sun
         paddleColors: { glow: '#ff00dd', chassis: 'rgba(20,0,20,0.9)' },
-        aiParams: { speed: 5.8, reactionDelay: 0.3, errorMargin: 0.08, hackFreq: 0.15, tactic: 'defensive' }
+        aiParams: { speed: 6.7, reactionDelay: 0.22, errorMargin: 0.08, hackFreq: 0.15, tactic: 'defensive' }
     },
     {
         id: 5,
@@ -152,7 +152,7 @@ export const CAMPAIGN_LEVELS = [
         wallpaperIndex: 2, // You look like youve seen a ghost
         musicIndex: 11, // 4AEM
         paddleColors: { glow: '#ffffff', chassis: 'rgba(5,5,10,0.9)' },
-        aiParams: { speed: 7.8, reactionDelay: 0.15, errorMargin: 0.0, hackFreq: 0.45, tactic: 'defensive' }
+        aiParams: { speed: 9.0, reactionDelay: 0.11, errorMargin: 0.0, hackFreq: 0.45, tactic: 'defensive' }
     },
 
     // ACT 3: BEYOND THE BLACKWALL
@@ -184,7 +184,7 @@ export const CAMPAIGN_LEVELS = [
         wallpaperIndex: 15, // Badlands
         musicIndex: 8, // No Save Point
         paddleColors: { glow: '#0066ff', chassis: 'rgba(0,10,30,0.9)' },
-        aiParams: { speed: 8.2, reactionDelay: 0.1, errorMargin: 0.0, hackFreq: 0.55, tactic: 'defensive' }
+        aiParams: { speed: 9.4, reactionDelay: 0.07, errorMargin: 0.0, hackFreq: 0.55, tactic: 'defensive' }
     },
     {
         id: 13,
@@ -291,7 +291,7 @@ export const CAMPAIGN_LEVELS = [
         wallpaperIndex: 8, // Corporate Pl
         musicIndex: 14, // Chippin In 2022
         paddleColors: { glow: '#ff0000', chassis: 'rgba(0,0,0,1)' },
-        aiParams: { speed: 10.0, reactionDelay: 0.0, errorMargin: 0.0, hackFreq: 0.9, tactic: 'defensive' }
+        aiParams: { speed: 11.5, reactionDelay: 0.0, errorMargin: 0.0, hackFreq: 0.9, tactic: 'defensive' }
     },
 
     // FINALE
