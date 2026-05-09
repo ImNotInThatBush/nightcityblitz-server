@@ -41,6 +41,7 @@ class Game {
         const cb = (newState, data) => this.changeState(newState, data);
 
         this.mainMenu = new MainMenu(cb, this.audioManager, this.userNickname);
+        this.mainMenu.currentCampaignLevel = this.currentCampaignLevel;
         this.optionsScreen = new OptionsScreen(cb, this.audioManager);
         this.difficultyScreen = new DifficultyScreen(cb, this.audioManager);
         this.nicknameScreen = new NicknameScreen(cb, this.audioManager);
@@ -259,11 +260,11 @@ class Game {
                     localStorage.setItem('ncb_campaign_level', 1);
                 }
                 this._loadLocalData();
-                this.userNickname = Auth.nickname; // Aggiorna da Auth
-                if (this.lobbyScreen) this.lobbyScreen.userNickname = this.userNickname;
-                this.mainMenu.userNickname = this.userNickname;
-                this.mainMenu.currentCampaignLevel = this.currentCampaignLevel;
             }
+            this.userNickname = Auth.nickname; // Aggiorna da Auth
+            if (this.lobbyScreen) this.lobbyScreen.userNickname = this.userNickname;
+            this.mainMenu.userNickname = this.userNickname;
+            this.mainMenu.currentCampaignLevel = this.currentCampaignLevel;
         }
     }
 
