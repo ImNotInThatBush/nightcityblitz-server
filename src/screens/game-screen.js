@@ -150,25 +150,25 @@ export class GameScreen {
         const cornerSize = Config.GAMEPLAY.PADDLE_CORNER_RATIO;
 
         if (isPlayer && this.isChargingOverdrive) {
-            let targetDirection = 'center';
-            if (impactPoint < cornerSize) targetDirection = 'down';
-            else if (impactPoint > 1 - cornerSize) targetDirection = 'up';
-
-            this.ball.activateDaemonTrace(this.ball.x, this.ball.y, targetDirection, 1);
+            this.ball.isDaemonTrace = true;
             this.isChargingOverdrive = false;
             this.player.isCharging = false;
             this.audioManager.stopChargeSound();
             this.audioManager.playSfx('overdriveFire');
             this.triggerScreenShake(15, 0.4);
-            return;
         }
 
         if (this.ball.isOverdrive) this.ball.isOverdrive = false;
 
         this.rallyHits++;
         
-        const currentSpeedBeforeSpin = this.ball.currentSpeed;
-        const newSpeed = Math.min(Config.GAMEPLAY.BALL_MAX_SPEED, currentSpeedBeforeSpin + Config.GAMEPLAY.BALL_ACCELERATION_PER_HIT);
+        let currentSpeedBeforeSpin = Math.sqrt(this.ball.dx * this.ball.dx + this.ball.dy * this.ball.dy);
+        let newSpeed = Math.min(Config.GAMEPLAY.BALL_MAX_SPEED, currentSpeedBeforeSpin + Config.GAMEPLAY.BALL_ACCELERATION_PER_HIT);
+
+        if (this.ball.isDaemonTrace) {
+            newSpeed = Config.GAMEPLAY.BALL_MAX_SPEED;
+            currentSpeedBeforeSpin = currentSpeedBeforeSpin || 1;
+        }
 
         const ratio = newSpeed / (currentSpeedBeforeSpin || 1);
         this.ball.dx *= -ratio;
@@ -194,10 +194,8 @@ export class GameScreen {
             }
             if (aiAction === 'USE_DAEMON_TRACE') {
                 this.aiRAM -= Config.GAMEPLAY.QUICKHACKS.OVERDRIVE_COST;
-                const targetDirection = this.player.y > Config.BASE_HEIGHT / 2 ? 'up' : 'down';
-                this.ball.activateDaemonTrace(this.ai.x, this.ai.y, targetDirection, -1);
+                this.ball.isDaemonTrace = true;
                 this.audioManager.playSfx('overdriveFire');
-                return;
             } else if (aiAction === true) {
                 this.ball.dy += (GamePRNG.nextFloat() > 0.5 ? 1 : -1) * Config.GAMEPLAY.PADDLE_CORNER_BOOST;
                 const ramGained = Config.GAMEPLAY.QUICKHACKS.RAM_SKILL_BONUS;
@@ -415,7 +413,9 @@ export class GameScreen {
     draw(renderer, input, alpha = 1) {
         renderer.drawGameArena(this.wallImpacts, this.cyberpsychosisIntensity);
         this.breachEffects.forEach(b => renderer.drawBreachEffect(b));
-        renderer.drawScore(this.playerScore, this.aiScore, this.playerRounds, this.aiRounds, this.scoreAnimation, this.cyberpsychosisIntensity, this.playerRAM, this.aiRAM, this.playerNickname, this.difficultyLabel);
+        const p1RAM = this.isMultiplayer ? null : this.playerRAM;
+        const p2RAM = this.isMultiplayer ? null : this.aiRAM;
+        renderer.drawScore(this.playerScore, this.aiScore, this.playerRounds, this.aiRounds, this.scoreAnimation, this.cyberpsychosisIntensity, p1RAM, p2RAM, this.playerNickname, this.difficultyLabel);
         if (this.activeIceWall) renderer.drawIceWall(this.activeIceWall);
         if (this.aiActiveIceWall) renderer.drawIceWall(this.aiActiveIceWall);
 

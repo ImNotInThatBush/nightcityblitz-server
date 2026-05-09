@@ -56,12 +56,7 @@ export class DynamicCampaignAI {
             targetOffset = Math.sin(Date.now() * 0.003) * (this.paddle.height * this.params.errorMargin);
         }
 
-        // Se la pallina è in Daemon Trace, i sensori dell'IA impazziscono
         let currentSpeed = this.params.speed;
-        if (ball.isDaemonTrace) {
-            targetOffset += (GamePRNG.nextFloat() - 0.5) * Config.BASE_HEIGHT * 0.6; 
-            currentSpeed *= 0.4; // Reazione rallentata per via dell'interferenza
-        }
 
         this.targetY = (ball.y - this.paddle.height / 2) + targetOffset;
 

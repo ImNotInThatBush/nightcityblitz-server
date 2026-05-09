@@ -117,6 +117,7 @@ export class LobbyScreen {
         });
 
         this.socket.on('room_closed', () => {
+            if (this.state !== 'MATCH_ROOM') return;
             this.state = 'DIRECTORY';
             this.currentRoom = null;
             this.isReady = false;

@@ -8,14 +8,6 @@ export class Ball {
         this.isDaemonTrace = false;
         this.prevX = 0;
         this.prevY = 0;
-        this.daemonTrace = {
-            phase: 'converging',
-            progress: 0,
-            startX: 0,
-            originY: 0,
-            targetDirection: 'center',
-            direction: 1,
-        };
         this.reset();
     }
 
@@ -39,38 +31,18 @@ export class Ball {
         this.isDaemonTrace = true;
         this.isOverdrive = false;
 
-        const m = Config.GAMEPLAY.ARENA_MARGIN + 50;
-        let targetY;
-        if (targetDirection === 'up') {
-            targetY = m + GamePRNG.nextFloat() * (Config.BASE_HEIGHT / 2 - m);
-        } else if (targetDirection === 'down') {
-            targetY = Config.BASE_HEIGHT / 2 + GamePRNG.nextFloat() * (Config.BASE_HEIGHT / 2 - m);
-        } else {
-            targetY = m + GamePRNG.nextFloat() * (Config.BASE_HEIGHT - m * 2);
-        }
-
-        this.daemonTrace = {
-            phase: 'converging',
-            progress: 0,
-            startX: impactX,
-            originY: impactY,
-            direction: direction,
-            targetY: targetY,
-            amplitude: 100 + GamePRNG.nextFloat() * 200, // Chaotic amplitude
-            frequency: 2 + GamePRNG.nextFloat() * 3,     // Chaotic frequency
-            phaseOffset: GamePRNG.nextFloat() * Math.PI * 2
-        };
         this.dx = Config.GAMEPLAY.BALL_MAX_SPEED * direction;
-        this.dy = 0;
+        
+        let spin = 0;
+        if (targetDirection === 'up') spin = -Config.GAMEPLAY.PADDLE_CORNER_BOOST * 1.5;
+        else if (targetDirection === 'down') spin = Config.GAMEPLAY.PADDLE_CORNER_BOOST * 1.5;
+        
+        this.dy += spin;
         this.trail = [];
     }
 
     updatePhysics(gameScreen, dtSeconds) {
-        if (this.isDaemonTrace) {
-            this._updateDaemonTrace(dtSeconds);
-        } else {
-            this._updateNormalPhysics(gameScreen, dtSeconds);
-        }
+        this._updateNormalPhysics(gameScreen, dtSeconds);
     }
 
     updateTrail(dtSeconds) {
@@ -114,43 +86,7 @@ export class Ball {
         }
     }
 
-    _updateDaemonTrace(dtSeconds) {
-        const traceDuration = 0.7;
-        this.daemonTrace.progress += dtSeconds / traceDuration;
-        if (this.daemonTrace.progress >= 1) { this.isDaemonTrace = false; return; }
 
-        const centerX = Config.BASE_WIDTH  / 2;
-        const centerY = Config.BASE_HEIGHT / 2;
-        const dir = this.daemonTrace.direction;
-
-        if (this.daemonTrace.phase === 'converging') {
-            const p = Math.min(1, this.daemonTrace.progress * 2);
-            this.x = this.daemonTrace.startX  + (centerX - this.daemonTrace.startX)  * p;
-            this.y = this.daemonTrace.originY + (centerY - this.daemonTrace.originY) * p;
-            if (this.daemonTrace.progress >= 0.5) this.daemonTrace.phase = 'snaking';
-        }
-
-        if (this.daemonTrace.phase === 'snaking') {
-            const sp = (this.daemonTrace.progress - 0.5) * 2;
-            const endX = dir === 1
-                ? Config.BASE_WIDTH  - Config.GAMEPLAY.ARENA_MARGIN - 50
-                : Config.GAMEPLAY.ARENA_MARGIN + 50;
-            this.x = centerX + (endX - centerX) * sp;
-
-            // Chaotic sine wave that dampens towards the end to cleanly hit the target Y
-            const dampening = 1 - Math.pow(sp, 3); // Dampens heavily at the very end
-            const yOffset = Math.sin(sp * Math.PI * this.daemonTrace.frequency + this.daemonTrace.phaseOffset) * this.daemonTrace.amplitude * dampening;
-            
-            // Linearly interpolate the base Y from center to the randomized targetY
-            const baseY = centerY + (this.daemonTrace.targetY - centerY) * sp;
-            
-            this.y = baseY + yOffset;
-            this.dx = Config.GAMEPLAY.BALL_MAX_SPEED * dir;
-            
-            // Set dy so that when it exits the trace, it has some residual vertical momentum based on where it's going
-            this.dy = (this.daemonTrace.targetY - centerY) * 1.5; 
-        }
-    }
 
     get currentSpeed() {
         if (this.isDaemonTrace) return Config.GAMEPLAY.BALL_MAX_SPEED;
