@@ -13,6 +13,7 @@ import { PauseScreen } from './screens/pause.js';
 import { GameOverScreen } from './screens/game-over.js';
 import { OptionsScreen } from './screens/options.js';
 import { CampaignTerminalScreen } from './screens/campaign-terminal.js';
+import { CreditsScreen } from './screens/credits.js';
 import { LobbyScreen } from './screens/lobby.js';
 import { Auth, AdminPanel } from './auth.js';
 
@@ -155,10 +156,22 @@ class Game {
         if (newState === 'GAME_OVER') {
             if (this.gameScreen && this.gameScreen.data && this.gameScreen.data.mode === 'CAMPAIGN' && data.playerWon) {
                 this.currentCampaignLevel++;
-                if (this.currentCampaignLevel > 20) this.currentCampaignLevel = 20; // Or win screen
+                if (this.currentCampaignLevel > 20) {
+                    this.currentCampaignLevel = 20; 
+                    this.changeState('CREDITS');
+                    return; // Avoid creating GAME_OVER screen
+                }
                 localStorage.setItem('ncb_campaign_level', this.currentCampaignLevel);
             }
             this.gameOverScreen = new GameOverScreen(this.changeState.bind(this), this.audioManager, data);
+        }
+
+        if (newState === 'CREDITS') {
+            this.audioManager.stopGameplayMusic();
+            this.audioManager.playGameplayMusic(false, 15); // Never Fade Away
+            this.wallpaperBg.style.opacity = '0';
+            this.videoBg.style.opacity = '1';
+            this.creditsScreen = new CreditsScreen(this.changeState.bind(this), this.audioManager);
         }
 
         if (newState === 'NICKNAME') {
@@ -216,6 +229,7 @@ class Game {
         if (newState === 'PAUSED') {
             if (oldState === 'PLAYING') {
                 this.renderer.saveGameFrame(this.canvas);
+                this.pauseScreen.mode = this.gameScreen && this.gameScreen.data ? this.gameScreen.data.mode : 'CAMPAIGN';
             }
         }
 
@@ -240,10 +254,15 @@ class Game {
                 }
                 this.wallpaperBg.style.opacity = '0';
                 this.videoBg.style.opacity = '1';
+                if (data && data.resetCampaign) {
+                    this.currentCampaignLevel = 1;
+                    localStorage.setItem('ncb_campaign_level', 1);
+                }
                 this._loadLocalData();
                 this.userNickname = Auth.nickname; // Aggiorna da Auth
                 if (this.lobbyScreen) this.lobbyScreen.userNickname = this.userNickname;
                 this.mainMenu.userNickname = this.userNickname;
+                this.mainMenu.currentCampaignLevel = this.currentCampaignLevel;
             }
         }
     }
@@ -268,6 +287,7 @@ class Game {
             case 'LOBBY':                this.lobbyScreen.update(this.input); break;
             case 'SELECT_DIFFICULTY':    this.difficultyScreen.update(this.input); break;
             case 'OPTIONS':              this.optionsScreen.update(this.input); break;
+            case 'CREDITS':              this.creditsScreen.update(this.input, dtSeconds); break;
             case 'PLAYING':              if (this.gameScreen) this.gameScreen.update(this.input, dtSeconds); break;
             case 'PAUSED':               this.pauseScreen.update(this.input); break;
             case 'GAME_OVER':            if (this.gameOverScreen) this.gameOverScreen.update(this.input); break;
@@ -341,6 +361,7 @@ class Game {
             case 'LOBBY':            this.lobbyScreen.draw(this.renderer); break;
             case 'SELECT_DIFFICULTY': this.mainMenu.draw(this.renderer, this.input, this.userNickname); this.difficultyScreen.draw(this.renderer); break;
             case 'OPTIONS':          this.optionsScreen.draw(this.renderer); break;
+            case 'CREDITS':          this.creditsScreen.draw(this.renderer); break;
             case 'NICKNAME':         this.nicknameScreen.draw(this.renderer); break;
             case 'CAMPAIGN_TERMINAL': this.campaignTerminalScreen.draw(this.renderer); break;
             case 'PLAYING':          if (this.gameScreen) this.gameScreen.draw(this.renderer, this.input, alpha); break;
@@ -372,12 +393,12 @@ class Game {
 
         this.context.restore();
 
-        const showCursor = ['MENU', 'OPTIONS', 'PAUSED', 'GAME_OVER', 'SELECT_DIFFICULTY', 'NICKNAME', 'CAMPAIGN_TERMINAL', 'LOBBY'].includes(this.gameState)
+        const showCursor = ['MENU', 'OPTIONS', 'PAUSED', 'GAME_OVER', 'SELECT_DIFFICULTY', 'NICKNAME', 'CAMPAIGN_TERMINAL', 'LOBBY', 'CREDITS'].includes(this.gameState)
             && !(this.gameState === 'NICKNAME' && this.nicknameScreen.animationProgress < this.nicknameScreen.animationDuration)
             && !['AWAITING_INTERACTION', 'BOOTING', 'FADING_OUT'].includes(this.gameState);
 
         if (showCursor) {
-            if (['MENU', 'OPTIONS', 'SELECT_DIFFICULTY', 'CAMPAIGN_TERMINAL', 'LOBBY'].includes(this.gameState)) this.renderer.drawScanlines();
+            if (['MENU', 'OPTIONS', 'SELECT_DIFFICULTY', 'CAMPAIGN_TERMINAL', 'LOBBY', 'CREDITS'].includes(this.gameState)) this.renderer.drawScanlines();
             this.renderer.drawCustomCursor(this.input.mouse.x, this.input.mouse.y);
         }
     }
