@@ -104,6 +104,29 @@ export class LobbyScreen {
                 }
             }
         });
+
+        this.socket.on('opponent_left', () => {
+            if (this.state === 'MATCH_ROOM') {
+                this.opponentName = null;
+                this.opponentReady = false;
+                this.isReady = false;
+                this.countdown = null;
+                this.errorMessage = "Opponent left the room.";
+                this.errorTimer = 3.0;
+            }
+        });
+
+        this.socket.on('room_closed', () => {
+            this.state = 'DIRECTORY';
+            this.currentRoom = null;
+            this.isReady = false;
+            this.opponentReady = false;
+            this.opponentName = null;
+            this.countdown = null;
+            if (this.socket) this.socket.emit('get_rooms');
+            this.errorMessage = "Room closed by host.";
+            this.errorTimer = 3.0;
+        });
     }
 
     enter(data = {}) {

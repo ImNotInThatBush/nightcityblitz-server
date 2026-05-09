@@ -322,23 +322,45 @@ io.on('connection', (socket) => {
         if (!socket.room) return;
         const roomId = socket.room;
         
-        socket.leave(roomId);
-        socket.to(roomId).emit('opponent_left');
-        
         const room = publicRooms[roomId];
         if (room) {
             if (room.gameInterval) clearInterval(room.gameInterval);
+            
             if (socket.isHost) {
+                // Host left: close room and kick everyone
+                io.to(roomId).emit('room_closed');
+                
+                const roomSockets = io.sockets.adapter.rooms.get(roomId);
+                if (roomSockets) {
+                    for (const clientId of Array.from(roomSockets)) {
+                        const clientSocket = io.sockets.sockets.get(clientId);
+                        if (clientSocket) {
+                            clientSocket.leave(roomId);
+                            clientSocket.room = null;
+                            clientSocket.isHost = false;
+                            clientSocket.isReady = false;
+                        }
+                    }
+                }
                 delete publicRooms[roomId];
             } else {
+                // Guest left: keep room alive for host
+                socket.leave(roomId);
+                socket.to(roomId).emit('opponent_left');
                 room.players--;
                 room.isStarted = false;
+                
+                socket.room = null;
+                socket.isHost = false;
+                socket.isReady = false;
             }
+        } else {
+            socket.leave(roomId);
+            socket.room = null;
+            socket.isHost = false;
+            socket.isReady = false;
         }
         
-        socket.room = null;
-        socket.isHost = false;
-        socket.isReady = false;
         broadcastRooms();
     };
 
@@ -449,10 +471,16 @@ io.on('connection', (socket) => {
         if (!socket.room) return;
         const room = publicRooms[socket.room];
         if (room && room.isStarted && room.gameState) {
+            let y = data.y;
+            const minY = PHYSICS.ARENA_MARGIN;
+            const maxY = PHYSICS.BASE_HEIGHT - PHYSICS.ARENA_MARGIN - PHYSICS.PADDLE_HEIGHT;
+            if (y < minY) y = minY;
+            if (y > maxY) y = maxY;
+
             if (socket.isHost) {
-                room.gameState.p1y = data.y;
+                room.gameState.p1y = y;
             } else {
-                room.gameState.p2y = data.y;
+                room.gameState.p2y = y;
             }
         }
     });

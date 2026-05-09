@@ -270,7 +270,12 @@ export class GameScreen {
     update(input, dtSeconds) {
         if (this.isMultiplayer) {
             if (this.socket) {
-                this.socket.emit('player_move', { y: input.mouse.y - this.player.height / 2 });
+                let clampedY = input.mouse.y - this.player.height / 2;
+                const minY = Config.ARENA_MARGIN || 50;
+                const maxY = Config.BASE_HEIGHT - (Config.ARENA_MARGIN || 50) - this.player.height;
+                if (clampedY < minY) clampedY = minY;
+                if (clampedY > maxY) clampedY = maxY;
+                this.socket.emit('player_move', { y: clampedY });
             }
 
             if (this.serverState) {

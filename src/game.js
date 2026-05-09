@@ -64,6 +64,12 @@ class Game {
                     this.changeState('LOBBY');
                 }
             });
+            this.socketManager.socket.on('room_closed', () => {
+                if ((this.gameState === 'PLAYING' || this.gameState === 'GAME_OVER') && this.gameScreen && this.gameScreen.data && this.gameScreen.data.mode === 'MULTIPLAYER') {
+                    alert('L\'host ha chiuso la stanza.');
+                    this.changeState('LOBBY');
+                }
+            });
         }
 
         this.fadeAlpha = 0;
