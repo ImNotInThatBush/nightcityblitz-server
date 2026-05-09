@@ -192,9 +192,17 @@ class Game {
                 this.audioManager.stopMenuMusic();
                 this.wallpaperBg.style.opacity = '1';
                 this.videoBg.style.opacity = '0';
+                let campaignDifficultyName = null;
+                let levelData = null;
+                if (!data.mode || data.mode === 'CAMPAIGN') {
+                    levelData = CAMPAIGN_LEVELS.find(l => l.id === this.currentCampaignLevel) || CAMPAIGN_LEVELS[0];
+                    campaignDifficultyName = levelData.opponentName;
+                }
+
                 this.gameScreen = new GameScreen(this.changeState.bind(this), this.audioManager, { 
                     ...data, 
                     nickname: this.userNickname,
+                    difficulty: campaignDifficultyName || data.difficulty,
                     socket: data.mode === 'MULTIPLAYER' ? this.socketManager.socket : null
                 });
 
@@ -211,7 +219,6 @@ class Game {
                     const wallpaper = Config.GAMEPLAY.WALLPAPER_PLAYLIST[Math.floor(Math.random() * Config.GAMEPLAY.WALLPAPER_PLAYLIST.length)];
                     this.wallpaperBg.src = wallpaper;
                 } else {
-                    const levelData = CAMPAIGN_LEVELS.find(l => l.id === this.currentCampaignLevel) || CAMPAIGN_LEVELS[0];
                     aiController = new DynamicCampaignAI(this.gameScreen.ai, levelData.aiParams);
                     const wallpaper = Config.GAMEPLAY.WALLPAPER_PLAYLIST[levelData.wallpaperIndex];
                     this.wallpaperBg.src = wallpaper;
