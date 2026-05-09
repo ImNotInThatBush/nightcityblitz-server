@@ -1,20 +1,20 @@
-import { Config } from './config.js?v=8';
-import { enterFullscreen } from './utils.js?v=8';
-import { AudioManager } from './audio.js?v=8';
-import { Input } from './input.js?v=8';
-import { Renderer } from './renderer.js?v=8';
-import { DynamicCampaignAI, SparringAI } from './ai.js?v=8';
-import { CAMPAIGN_LEVELS } from './campaign.js?v=8';
-import { MainMenu } from './screens/menu.js?v=8';
-import { DifficultyScreen } from './screens/difficulty.js?v=8';
-import { NicknameScreen } from './screens/nickname.js?v=8';
-import { GameScreen } from './screens/game-screen.js?v=8';
-import { PauseScreen } from './screens/pause.js?v=8';
-import { GameOverScreen } from './screens/game-over.js?v=8';
-import { OptionsScreen } from './screens/options.js?v=8';
-import { CampaignTerminalScreen } from './screens/campaign-terminal.js?v=8';
-import { LobbyScreen } from './screens/lobby.js?v=8';
-import { Auth, AdminPanel } from './auth.js?v=8';
+import { Config } from './config.js?v=9';
+import { enterFullscreen } from './utils.js?v=9';
+import { AudioManager } from './audio.js?v=9';
+import { Input } from './input.js?v=9';
+import { Renderer } from './renderer.js?v=9';
+import { DynamicCampaignAI, SparringAI } from './ai.js?v=9';
+import { CAMPAIGN_LEVELS } from './campaign.js?v=9';
+import { MainMenu } from './screens/menu.js?v=9';
+import { DifficultyScreen } from './screens/difficulty.js?v=9';
+import { NicknameScreen } from './screens/nickname.js?v=9';
+import { GameScreen } from './screens/game-screen.js?v=9';
+import { PauseScreen } from './screens/pause.js?v=9';
+import { GameOverScreen } from './screens/game-over.js?v=9';
+import { OptionsScreen } from './screens/options.js?v=9';
+import { CampaignTerminalScreen } from './screens/campaign-terminal.js?v=9';
+import { LobbyScreen } from './screens/lobby.js?v=9';
+import { Auth, AdminPanel } from './auth.js?v=9';
 
 class Game {
     constructor(canvas) {
@@ -128,6 +128,10 @@ class Game {
             if (this.socketManager && this.socketManager.socket) {
                 this.socketManager.socket.emit('leave_room');
             }
+        }
+
+        if (newState === 'MENU') {
+            this.userNickname = Auth.nickname;
         }
 
         this.gameState = newState;

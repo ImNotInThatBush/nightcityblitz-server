@@ -1,4 +1,4 @@
-import { Config } from './config.js?v=8';
+import { Config } from './config.js?v=9';
 
 export const Auth = {
     nickname: null,
