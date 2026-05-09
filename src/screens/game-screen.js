@@ -202,7 +202,11 @@ export class GameScreen {
                 if (aiAction === true) {
                     this.ball.dy += (GamePRNG.nextFloat() > 0.5 ? 1 : -1) * Config.GAMEPLAY.PADDLE_CORNER_BOOST;
                 }
-                const ramGained = Config.GAMEPLAY.QUICKHACKS.RAM_SKILL_BONUS * (aiAction === true ? 1 : 0.5);
+                let ramMultiplier = aiAction === true ? 1 : 0;
+                if (!aiAction && this.ai && this.ai.aiController && this.ai.aiController.params.tactic === 'defensive') {
+                    ramMultiplier = 0.5; // Solo le IA difensive accumulano RAM sui colpi normali
+                }
+                const ramGained = Config.GAMEPLAY.QUICKHACKS.RAM_SKILL_BONUS * ramMultiplier;
                 const oldRam = this.aiRAM;
                 this.aiRAM = Math.min(Config.GAMEPLAY.QUICKHACKS.RAM_MAX, oldRam + ramGained);
             }
