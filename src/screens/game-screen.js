@@ -195,7 +195,8 @@ export class GameScreen {
             }
             if (aiAction === 'USE_DAEMON_TRACE') {
                 this.aiRAM -= Config.GAMEPLAY.QUICKHACKS.OVERDRIVE_COST;
-                this.ball.isDaemonTrace = true;
+                const targetDirection = (this.player.y < this.ai.y) ? 'up' : 'down';
+                this.ball.activateDaemonTrace(this.ball.x, this.ball.y, targetDirection, -1);
                 this.audioManager.playSfx('overdriveFire');
             } else if (aiAction === true) {
                 this.ball.dy += (GamePRNG.nextFloat() > 0.5 ? 1 : -1) * Config.GAMEPLAY.PADDLE_CORNER_BOOST;
