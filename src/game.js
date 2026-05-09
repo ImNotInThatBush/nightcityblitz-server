@@ -1,20 +1,20 @@
-import { Config } from './config.js?v=9';
-import { enterFullscreen } from './utils.js?v=9';
-import { AudioManager } from './audio.js?v=9';
-import { Input } from './input.js?v=9';
-import { Renderer } from './renderer.js?v=9';
-import { DynamicCampaignAI, SparringAI } from './ai.js?v=9';
-import { CAMPAIGN_LEVELS } from './campaign.js?v=9';
-import { MainMenu } from './screens/menu.js?v=9';
-import { DifficultyScreen } from './screens/difficulty.js?v=9';
-import { NicknameScreen } from './screens/nickname.js?v=9';
-import { GameScreen } from './screens/game-screen.js?v=9';
-import { PauseScreen } from './screens/pause.js?v=9';
-import { GameOverScreen } from './screens/game-over.js?v=9';
-import { OptionsScreen } from './screens/options.js?v=9';
-import { CampaignTerminalScreen } from './screens/campaign-terminal.js?v=9';
-import { LobbyScreen } from './screens/lobby.js?v=9';
-import { Auth, AdminPanel } from './auth.js?v=9';
+import { Config } from './config.js';
+import { enterFullscreen } from './utils.js';
+import { AudioManager } from './audio.js';
+import { Input } from './input.js';
+import { Renderer } from './renderer.js';
+import { DynamicCampaignAI, SparringAI } from './ai.js';
+import { CAMPAIGN_LEVELS } from './campaign.js';
+import { MainMenu } from './screens/menu.js';
+import { DifficultyScreen } from './screens/difficulty.js';
+import { NicknameScreen } from './screens/nickname.js';
+import { GameScreen } from './screens/game-screen.js';
+import { PauseScreen } from './screens/pause.js';
+import { GameOverScreen } from './screens/game-over.js';
+import { OptionsScreen } from './screens/options.js';
+import { CampaignTerminalScreen } from './screens/campaign-terminal.js';
+import { LobbyScreen } from './screens/lobby.js';
+import { Auth, AdminPanel } from './auth.js';
 
 class Game {
     constructor(canvas) {
