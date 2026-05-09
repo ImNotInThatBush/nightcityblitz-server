@@ -142,7 +142,7 @@ class Game {
             this.changeState('NICKNAME');
         };
 
-        if (newState === 'CAMPAIGN_TERMINAL' || newState === 'PLAYING') {
+        if (newState === 'MENU' || newState === 'CAMPAIGN_TERMINAL' || newState === 'PLAYING') {
             Auth.enforceSessionValidation(kickPlayer);
         }
 
