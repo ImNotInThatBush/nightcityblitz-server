@@ -17,12 +17,21 @@ pool.on('error', (err) => {
 });
 
 // Middleware per proteggere le rotte admin
-const requireAdmin = (req, res, next) => {
-    const { nickname } = req.body; 
+const requireAdmin = async (req, res, next) => {
+    const { nickname, token } = req.body; 
     if (!nickname || nickname.toLowerCase() !== 'imnotinthatbush') {
         return res.status(403).json({ error: "Accesso Negato: Privilegi Admin richiesti." });
     }
-    next();
+    
+    try {
+        const userRes = await pool.query('SELECT auth_token FROM ncb_users WHERE nickname ILIKE $1', [nickname]);
+        if (userRes.rows.length === 0 || userRes.rows[0].auth_token !== token) {
+            return res.status(403).json({ error: "Accesso Negato: Token Admin non valido o assente." });
+        }
+        next();
+    } catch (err) {
+        return res.status(500).json({ error: "Errore di validazione Admin." });
+    }
 };
 
 // Endpoint di Login (Passwordless)
@@ -32,7 +41,7 @@ app.post('/api/login', async (req, res) => {
 
     const cleanNick = nickname.trim();
     try {
-        const userRes = await pool.query('SELECT * FROM ncb_users WHERE nickname = $1', [cleanNick]);
+        const userRes = await pool.query('SELECT * FROM ncb_users WHERE nickname ILIKE $1', [cleanNick]);
         
         if (userRes.rows.length === 0) {
             // Nuovo utente: genera token e salvalo
@@ -40,7 +49,7 @@ app.post('/api/login', async (req, res) => {
             await pool.query('INSERT INTO ncb_users (nickname, auth_token) VALUES ($1, $2)', [cleanNick, newToken]);
             
             // Crea record statistiche
-            const newIdRes = await pool.query('SELECT id FROM ncb_users WHERE nickname = $1', [cleanNick]);
+            const newIdRes = await pool.query('SELECT id FROM ncb_users WHERE nickname ILIKE $1', [cleanNick]);
             await pool.query('INSERT INTO ncb_stats (user_id) VALUES ($1)', [newIdRes.rows[0].id]);
             
             return res.json({ success: true, nickname: cleanNick, token: newToken, isNew: true });
@@ -67,7 +76,7 @@ app.post('/api/validate', async (req, res) => {
     if (!nickname || !token) return res.status(401).json({ valid: false });
 
     try {
-        const userRes = await pool.query('SELECT auth_token, is_banned FROM ncb_users WHERE nickname = $1', [nickname]);
+        const userRes = await pool.query('SELECT auth_token, is_banned FROM ncb_users WHERE nickname ILIKE $1', [nickname]);
         if (userRes.rows.length === 0) return res.json({ valid: false }); // Utente eliminato
         
         const user = userRes.rows[0];
@@ -110,7 +119,7 @@ app.post('/api/admin/ban', requireAdmin, async (req, res) => {
 app.post('/api/admin/reset-stats', requireAdmin, async (req, res) => {
     const { targetId } = req.body;
     try {
-        await client.query(`UPDATE ncb_stats SET wins = 0, losses = 0, ram_used = 0 WHERE user_id = $1`, [targetId]);
+        await pool.query(`UPDATE ncb_stats SET wins = 0, losses = 0, ram_used = 0 WHERE user_id = $1`, [targetId]);
         res.json({ success: true });
     } catch (err) {
         res.status(500).json({ error: "Errore durante il reset delle statistiche" });
@@ -157,8 +166,9 @@ function resetBall(room) {
     const s = room.gameState;
     s.ball.x = PHYSICS.BASE_WIDTH / 2;
     s.ball.y = PHYSICS.BASE_HEIGHT / 2;
-    s.ball.dx = (Math.random() > 0.5 ? 1 : -1) * PHYSICS.BALL_BASE_SPEED;
-    s.ball.dy = (Math.random() > 0.5 ? 1 : -1) * (PHYSICS.BALL_BASE_SPEED / 2);
+    s.ball.dx = 0;
+    s.ball.dy = 0;
+    s.pauseTimer = 2.0; // Wait 2 seconds before moving
 }
 
 function startGameLoop(roomId) {
@@ -169,7 +179,9 @@ function startGameLoop(roomId) {
         ball: { x: PHYSICS.BASE_WIDTH/2, y: PHYSICS.BASE_HEIGHT/2, dx: 0, dy: 0 },
         p1y: (PHYSICS.BASE_HEIGHT - PHYSICS.PADDLE_HEIGHT)/2,
         p2y: (PHYSICS.BASE_HEIGHT - PHYSICS.PADDLE_HEIGHT)/2,
-        score: [0, 0]
+        score: [0, 0],
+        rounds: [0, 0],
+        pauseTimer: 0
     };
     resetBall(room);
     
@@ -180,9 +192,23 @@ function startGameLoop(roomId) {
     const p2x = PHYSICS.BASE_WIDTH - margin - pw - 10;
     const br = PHYSICS.BALL_RADIUS;
     
-    room.gameInterval = setInterval(() => {
+    room.gameInterval = setInterval(async () => {
         const s = room.gameState;
         const dt = PHYSICS.STEP;
+        
+        if (s.pauseTimer > 0) {
+            s.pauseTimer -= dt;
+            if (s.pauseTimer <= 0) {
+                s.ball.dx = (Math.random() > 0.5 ? 1 : -1) * PHYSICS.BALL_BASE_SPEED;
+                s.ball.dy = (Math.random() > 0.5 ? 1 : -1) * (PHYSICS.BALL_BASE_SPEED / 2);
+            }
+            // Keep emitting state during pause so clients see ball centered
+            io.to(roomId).emit('game_state_update', {
+                ball: {x: s.ball.x, y: s.ball.y, dx: s.ball.dx},
+                p1y: s.p1y, p2y: s.p2y, score: s.score
+            });
+            return;
+        }
         
         s.ball.x += s.ball.dx * dt;
         s.ball.y += s.ball.dy * dt;
@@ -218,12 +244,41 @@ function startGameLoop(roomId) {
         if (s.ball.dx > PHYSICS.BALL_MAX_SPEED) s.ball.dx = PHYSICS.BALL_MAX_SPEED;
         if (s.ball.dx < -PHYSICS.BALL_MAX_SPEED) s.ball.dx = -PHYSICS.BALL_MAX_SPEED;
         
+        let goalScored = false;
         if (s.ball.x < 0) {
             s.score[1]++;
-            resetBall(room);
+            io.to(roomId).emit('goal_scored', { scorer: 'p2', score: s.score });
+            goalScored = true;
         } else if (s.ball.x > PHYSICS.BASE_WIDTH) {
             s.score[0]++;
+            io.to(roomId).emit('goal_scored', { scorer: 'p1', score: s.score });
+            goalScored = true;
+        }
+        
+        if (goalScored) {
             resetBall(room);
+            
+            // Check for round / match end
+            if (s.score[0] >= 3 || s.score[1] >= 3) {
+                const winnerIndex = s.score[0] >= 3 ? 0 : 1;
+                s.rounds[winnerIndex]++;
+                
+                if (s.rounds[winnerIndex] >= 3) {
+                    io.to(roomId).emit('match_ended', { winner: winnerIndex === 0 ? 'p1' : 'p2' });
+                    clearInterval(room.gameInterval);
+                    room.gameInterval = null;
+                    room.isStarted = false;
+                    
+                    // Unready players for rematch
+                    const sockets = await io.in(roomId).fetchSockets();
+                    sockets.forEach(sock => sock.isReady = false);
+                    broadcastRooms();
+                    return;
+                } else {
+                    io.to(roomId).emit('round_ended', { rounds: s.rounds });
+                    s.score = [0, 0];
+                }
+            }
         }
         
         io.to(roomId).emit('game_state_update', {
@@ -249,11 +304,36 @@ function broadcastRooms() {
 io.on('connection', (socket) => {
     console.log('Nuova connessione Socket.io:', socket.id);
 
+    const leaveRoom = () => {
+        if (!socket.room) return;
+        const roomId = socket.room;
+        
+        socket.leave(roomId);
+        socket.to(roomId).emit('opponent_left');
+        
+        const room = publicRooms[roomId];
+        if (room) {
+            if (room.gameInterval) clearInterval(room.gameInterval);
+            if (socket.isHost) {
+                delete publicRooms[roomId];
+            } else {
+                room.players--;
+                room.isStarted = false;
+            }
+        }
+        
+        socket.room = null;
+        socket.isHost = false;
+        socket.isReady = false;
+        broadcastRooms();
+    };
+
     socket.on('get_rooms', () => {
         socket.emit('rooms_list', getPublicRoomsList());
     });
 
     socket.on('create_room', (data) => {
+        leaveRoom(); // Prevent phantom rooms
         socket.nickname = data.hostNickname;
         const roomId = `room_${socket.id}_${Date.now()}`;
         
@@ -277,6 +357,7 @@ io.on('connection', (socket) => {
     });
 
     socket.on('join_room', (roomId) => {
+        leaveRoom(); // Prevent phantom rooms
         const room = publicRooms[roomId];
         if (!room || room.isStarted || room.players >= room.maxPlayers) {
             socket.emit('room_error', "Stanza piena o non disponibile.");
@@ -289,7 +370,7 @@ io.on('connection', (socket) => {
         socket.isReady = false;
         room.players++;
 
-        socket.emit('room_joined', { roomName: room.name, opponent: room.host, opponentReady: false, isHost: false }); // Wait, we don't know if host is ready. Host is usually waiting.
+        socket.emit('room_joined', { roomName: room.name, opponent: room.host, opponentReady: false, isHost: false });
         socket.to(roomId).emit('opponent_joined', { nickname: socket.nickname || 'Challenger' });
         
         broadcastRooms();
@@ -361,31 +442,6 @@ io.on('connection', (socket) => {
             }
         }
     });
-
-    const leaveRoom = () => {
-        if (!socket.room) return;
-        const roomId = socket.room;
-        
-        socket.leave(roomId);
-        socket.to(roomId).emit('opponent_left');
-        
-        const room = publicRooms[roomId];
-        if (room) {
-            if (room.gameInterval) clearInterval(room.gameInterval);
-            if (socket.isHost) {
-                // Se l'host esce, la stanza muore
-                delete publicRooms[roomId];
-            } else {
-                room.players--;
-                room.isStarted = false; // Reset in caso fosse partita
-            }
-        }
-        
-        socket.room = null;
-        socket.isHost = false;
-        socket.isReady = false;
-        broadcastRooms();
-    };
 
     socket.on('leave_room', leaveRoom);
     socket.on('disconnect', () => {

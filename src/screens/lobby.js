@@ -106,12 +106,19 @@ export class LobbyScreen {
         });
     }
 
-    enter() {
-        this.state = 'DIRECTORY';
-        this.roomInput = "";
-        this.currentRoom = null;
-        if (this.socket) {
-            this.socket.emit('get_rooms');
+    enter(data = {}) {
+        if (data.keepRoom && this.currentRoom) {
+            this.state = 'MATCH_ROOM';
+            this.isReady = false;
+            this.opponentReady = false;
+            this.countdown = null;
+        } else {
+            this.state = 'DIRECTORY';
+            this.roomInput = "";
+            this.currentRoom = null;
+            if (this.socket) {
+                this.socket.emit('get_rooms');
+            }
         }
     }
 

@@ -125,6 +125,9 @@ class Game {
         if (newState === 'MENU' && oldState !== 'BOOTING' && oldState !== 'FADING_OUT' && oldState !== 'AWAITING_INTERACTION') {
             if (oldState === 'PAUSED') this.audioManager.stopGameplayMusic();
             this.audioManager.playMenuMusic();
+            if (this.socketManager && this.socketManager.socket) {
+                this.socketManager.socket.emit('leave_room');
+            }
         }
 
         this.gameState = newState;
@@ -155,7 +158,7 @@ class Game {
         }
 
         if (newState === 'LOBBY') {
-            this.lobbyScreen.enter();
+            this.lobbyScreen.enter(data);
             this.wallpaperBg.style.opacity = '0.5';
             this.videoBg.style.opacity = '0.5';
         }

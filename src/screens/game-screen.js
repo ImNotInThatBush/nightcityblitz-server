@@ -45,11 +45,39 @@ export class GameScreen {
             this.socket.on('game_state_update', (state) => {
                 this.serverState = state;
             });
+            this.socket.on('goal_scored', (data) => {
+                const winner = (this.role === 'host') ? (data.scorer === 'p1' ? 'player' : 'ai') : (data.scorer === 'p2' ? 'player' : 'ai');
+                this.scorePoint(winner, true); // true = isSync (so it doesn't duplicate score)
+                
+                // Force sync scores just in case
+                if (this.role === 'host') {
+                    this.playerScore = data.score[0];
+                    this.aiScore = data.score[1];
+                } else {
+                    this.playerScore = data.score[1];
+                    this.aiScore = data.score[0];
+                }
+            });
+            this.socket.on('round_ended', (data) => {
+                if (this.role === 'host') {
+                    this.playerRounds = data.rounds[0];
+                    this.aiRounds = data.rounds[1];
+                } else {
+                    this.playerRounds = data.rounds[1];
+                    this.aiRounds = data.rounds[0];
+                }
+                this.playerScore = 0;
+                this.aiScore = 0;
+            });
+            this.socket.on('match_ended', (data) => {
+                const weWon = (this.role === 'host' && data.winner === 'p1') || (this.role === 'guest' && data.winner === 'p2');
+                this.changeState('GAME_OVER', { playerWon: weWon, isMultiplayer: true });
+            });
             this.socket.on('opponent_left', () => {
-                this.changeState('LOBBY');
+                this.changeState('LOBBY', { keepRoom: true });
             });
             this.socket.on('match_cancelled', () => {
-                this.changeState('LOBBY');
+                this.changeState('LOBBY', { keepRoom: true });
             });
         }
     }
@@ -262,13 +290,6 @@ export class GameScreen {
                     this.shockwaves.push({ x: this.ball.x, y: this.ball.y, radius: Config.GAMEPLAY.BALL_RADIUS, alpha: 1.0 });
                 }
                 this.lastDx = s.ball.dx;
-
-                if (this.playerScore !== s.score[0] || this.aiScore !== s.score[1]) {
-                    if (s.score[0] > this.playerScore) this.scorePoint('player', true);
-                    else if (s.score[1] > this.aiScore) this.scorePoint('ai', true);
-                    this.playerScore = s.score[0];
-                    this.aiScore = s.score[1];
-                }
             }
             this.ball.updateTrail(dtSeconds);
         } else {
@@ -359,28 +380,29 @@ export class GameScreen {
 
         if (input.mouse.rightClicked) this.changeState('PAUSED');
 
-        if (this.ball.x < 0) { this.scorePoint('ai'); }
-        else if (this.ball.x > Config.BASE_WIDTH) { this.scorePoint('player'); }
+        if (!this.isMultiplayer) {
+            if (this.ball.x < 0) { this.scorePoint('ai'); }
+            else if (this.ball.x > Config.BASE_WIDTH) { this.scorePoint('player'); }
 
-        let roundOver = false;
-        if (this.playerScore >= Config.GAMEPLAY.ROUND_WINNING_SCORE) { this.playerRounds++; roundOver = true; }
-        else if (this.aiScore >= Config.GAMEPLAY.ROUND_WINNING_SCORE) { this.aiRounds++; roundOver = true; }
+            let roundOver = false;
+            if (this.playerScore >= Config.GAMEPLAY.ROUND_WINNING_SCORE) { this.playerRounds++; roundOver = true; }
+            else if (this.aiScore >= Config.GAMEPLAY.ROUND_WINNING_SCORE) { this.aiRounds++; roundOver = true; }
 
-        if (roundOver) {
-            if (this.playerRounds >= Config.GAMEPLAY.ROUNDS_TO_WIN_MATCH || this.aiRounds >= Config.GAMEPLAY.ROUNDS_TO_WIN_MATCH) {
-                this.audioManager.stopCyberpsychosisSfx();
-                this.cyberpsychosisIntensity = 0;
-                this.glitchEffect.intensity = 0;
-                this.screenShake.intensity = 0;
-                this.goalFlash.alpha = 0;
-                this.particles = [];
-                this.shockwaves = [];
-                this.breachEffects = [];
-                this.changeState('GAME_OVER', { playerWon: this.playerRounds > this.aiRounds });
-            } else {
-                this.playerScore = 0;
-                this.aiScore = 0;
-                // RAM non viene più resettata tra i round (Hardcore mode)
+            if (roundOver) {
+                if (this.playerRounds >= Config.GAMEPLAY.ROUNDS_TO_WIN_MATCH || this.aiRounds >= Config.GAMEPLAY.ROUNDS_TO_WIN_MATCH) {
+                    this.audioManager.stopCyberpsychosisSfx();
+                    this.cyberpsychosisIntensity = 0;
+                    this.glitchEffect.intensity = 0;
+                    this.screenShake.intensity = 0;
+                    this.goalFlash.alpha = 0;
+                    this.particles = [];
+                    this.shockwaves = [];
+                    this.breachEffects = [];
+                    this.changeState('GAME_OVER', { playerWon: this.playerRounds > this.aiRounds });
+                } else {
+                    this.playerScore = 0;
+                    this.aiScore = 0;
+                }
             }
         }
     }
