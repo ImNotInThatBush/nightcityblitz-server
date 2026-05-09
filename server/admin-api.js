@@ -140,6 +140,25 @@ app.post('/api/admin/reset-stats', requireAdmin, async (req, res) => {
     }
 });
 
+// Resetta la password di un giocatore
+app.post('/api/admin/reset-password', requireAdmin, async (req, res) => {
+    const { targetId, newPassword } = req.body;
+    if (!newPassword || newPassword.trim() === '') return res.status(400).json({ error: "Password non valida." });
+    try {
+        const userRes = await pool.query('SELECT nickname FROM ncb_users WHERE id = $1', [targetId]);
+        if (userRes.rows.length === 0) return res.status(404).json({ error: "Utente non trovato." });
+        
+        // Invalidiamo anche il token così deve riloggare
+        const newToken = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+        await pool.query(`UPDATE ncb_users SET password_hash = $1, auth_token = $2 WHERE id = $3`, [newPassword.trim(), newToken, targetId]);
+        
+        res.json({ success: true, targetNick: userRes.rows[0].nickname });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: "Errore durante il reset della password" });
+    }
+});
+
 // Elimina definitivamente un giocatore
 app.post('/api/admin/delete', requireAdmin, async (req, res) => {
     const { targetId } = req.body;

@@ -124,6 +124,29 @@ export const AdminPanel = {
         }
     },
 
+    async resetPassword(targetId) {
+        if (!this.token) return;
+        const newPassword = prompt("Inserisci la nuova password per questo utente (lascia vuoto per annullare):", "1234");
+        if (!newPassword || newPassword.trim() === '') return;
+
+        try {
+            const res = await fetch(`${Config.API_URL}/api/admin/reset-password`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ nickname: this.nickname, token: this.token, targetId, newPassword: newPassword.trim() })
+            });
+            const data = await res.json();
+            if (data.success) {
+                alert(`Password resettata con successo per l'utente ${data.targetNick}. Ora la sua password è: ${newPassword.trim()}`);
+            } else {
+                alert("Errore: " + data.error);
+            }
+        } catch (e) {
+            console.error("Error resetting password", e);
+            alert("Errore di connessione al server.");
+        }
+    },
+
     initAdminUI() {
         const overlay = document.getElementById('admin-overlay');
         const refreshBtn = document.getElementById('admin-refresh-btn');
@@ -142,9 +165,10 @@ export const AdminPanel = {
                     <td style="padding: 10px; color: #00f6ff;">${p.nickname}</td>
                     <td style="padding: 10px;">${p.wins} / ${p.losses}</td>
                     <td style="padding: 10px; color: ${p.is_banned ? '#ff003c' : '#fcee0a'};">${p.is_banned ? 'BANNATO' : 'ATTIVO'}</td>
-                    <td style="padding: 10px; display: flex; gap: 5px;">
+                    <td style="padding: 10px; display: flex; gap: 5px; flex-wrap: wrap;">
                         <button onclick="window.AdminPanel.toggleBan(${p.id}, ${!p.is_banned})" style="background: ${p.is_banned ? '#00f6ff' : '#ff003c'}; color: #000; border: none; cursor: pointer; padding: 5px 10px;">${p.is_banned ? 'S-BANNA' : 'BANNA'}</button>
                         <button onclick="window.AdminPanel.resetStats(${p.id})" style="background: #fcee0a; color: #000; border: none; cursor: pointer; padding: 5px 10px;">RESET STATS</button>
+                        <button onclick="window.AdminPanel.resetPassword(${p.id})" style="background: #fff; color: #000; border: none; cursor: pointer; padding: 5px 10px;">RESET PASS</button>
                         <button onclick="window.AdminPanel.deletePlayer(${p.id})" style="background: #000; border: 1px solid #ff003c; color: #ff003c; cursor: pointer; padding: 5px 10px;">ELIMINA</button>
                     </td>
                 `;
@@ -159,6 +183,7 @@ export const AdminPanel = {
         window.AdminPanel = {
             toggleBan: async (id, status) => { await this.toggleBan(id, status); renderList(); },
             resetStats: async (id) => { await this.resetStats(id); renderList(); },
+            resetPassword: async (id) => { await this.resetPassword(id); },
             deletePlayer: async (id) => { await this.deletePlayer(id); renderList(); },
             openAndRefresh: () => { overlay.style.display = 'block'; renderList(); }
         };
